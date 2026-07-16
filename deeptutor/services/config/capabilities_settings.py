@@ -214,6 +214,15 @@ def _build_chat_block(agents_cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_chat_params() -> dict[str, Any]:
+    """Runtime chat params (temperature, stage budgets, model) from agents.yaml."""
+    agents_cfg = _read_agents_yaml()
+    chat = _build_chat_block(agents_cfg)
+    chat_cfg = _get_at(agents_cfg, ("capabilities", "chat"))
+    chat["model"] = chat_cfg.get("model")
+    return chat
+
+
 def _build_simple_llm_block(agents_cfg: dict[str, Any], capability: str) -> dict[str, Any]:
     defaults = _SIMPLE_LLM_DEFAULTS[capability]
     section = _get_at(agents_cfg, _AGENTS_YAML_CAPABILITY_SECTIONS[capability])
@@ -459,6 +468,8 @@ def get_research_params() -> dict[str, Any]:
 
 __all__ = [
     "capabilities_settings_dict",
+    "get_chat_params",
+    "get_research_params",
     "get_solve_params",
     "save_capabilities_settings",
 ]

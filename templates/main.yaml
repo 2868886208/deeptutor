@@ -1,0 +1,14 @@
+# DeepTutor main config - memory compression settings
+# 降低 Agent 间传递的上下文体积，减少 token 消耗
+
+memory:
+  l2_budget_update: 15
+  l3_budget_update: 8
+  l2_budget_audit: 15
+  l3_budget_audit: 8
+  dedup:
+    iterations: 3
+  chunking:
+    overlap_ratio: 0.08
+    min_chunk_chars: 1500
+    max_chunk_chars: 40000

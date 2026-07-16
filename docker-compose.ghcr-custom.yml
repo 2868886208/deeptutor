@@ -1,0 +1,25 @@
+# DeepTutor with per-capability model routing
+# Chat/Research = deepseek-v4-flash, Deep Solve = deepseek-v4-pro
+#
+# Local deploy (after GitHub Actions builds the image):
+#   docker pull ghcr.io/2868886208/deeptutor:latest
+#   docker compose -f docker-compose.ghcr-custom.yml up -d
+#
+# Open: http://localhost:3782
+
+services:
+  deeptutor:
+    image: ghcr.io/2868886208/deeptutor:latest
+    container_name: deeptutor
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+      - "3782:3782"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
