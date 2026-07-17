@@ -260,6 +260,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         default_api_base="https://api.deepseek.com",
         thinking_style="thinking_type",
         reasoning_model_patterns=("deepseek-v4-pro", "deepseek-reasoner"),
+        supports_prompt_caching=True,
     ),
     ProviderSpec(
         name="gemini",

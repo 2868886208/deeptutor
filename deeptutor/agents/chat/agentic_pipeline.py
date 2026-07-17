@@ -328,6 +328,7 @@ class AgenticChatPipeline:
         context: UnifiedContext,
         *,
         include_tool_manifest: bool = True,
+        include_volatile_blocks: bool = True,
     ) -> str:
         return self._prompt_assembler.system_prompt(
             context=context,
@@ -340,6 +341,7 @@ class AgenticChatPipeline:
             workspace_note=self._workspace_system_note(context),
             capability_blocks=self._capability_system_blocks(context),
             include_tool_manifest=include_tool_manifest,
+            include_volatile_blocks=include_volatile_blocks,
         )
 
     def _build_loop_messages(

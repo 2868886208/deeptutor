@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from deeptutor.capabilities.protocol import PromptBlock
 from deeptutor.core.context import UnifiedContext
 from deeptutor.services.prompt.language import append_language_directive
+
+# Per-session L3 content hash cache for delta injection.
+# Avoids re-injecting unchanged L3 memory across turns within the same session.
+_l3_content_cache: dict[str, str] = {}
 
 
 class ChatPromptAssembler:
@@ -27,6 +32,7 @@ class ChatPromptAssembler:
         workspace_note: str = "",
         capability_blocks: list[PromptBlock] | None = None,
         include_tool_manifest: bool = True,
+        include_volatile_blocks: bool = True,
     ) -> str:
         blocks = self.blocks(
             context=context,
@@ -37,6 +43,7 @@ class ChatPromptAssembler:
             workspace_note=workspace_note,
             capability_blocks=capability_blocks,
             include_tool_manifest=include_tool_manifest,
+            include_volatile_blocks=include_volatile_blocks,
         )
         joined = "\n\n---\n\n".join(
             f"## {block.name}\n{block.content.strip()}" for block in blocks if block.content.strip()
@@ -54,6 +61,7 @@ class ChatPromptAssembler:
         workspace_note: str = "",
         capability_blocks: list[PromptBlock] | None = None,
         include_tool_manifest: bool = True,
+        include_volatile_blocks: bool = True,
     ) -> list[PromptBlock]:
         blocks: list[PromptBlock] = [
             PromptBlock("general", self._general_block(context)),
@@ -69,7 +77,19 @@ class ChatPromptAssembler:
         if partner_policy:
             blocks.append(PromptBlock("partner_turn_policy", partner_policy))
         if context.memory_context:
-            blocks.append(PromptBlock("memory", context.memory_context))
+            mem_hash = hashlib.sha256(context.memory_context.encode()).hexdigest()
+            session_id = context.session_id or "default"
+            prev_hash = _l3_content_cache.get(session_id)
+            if prev_hash != mem_hash:
+                # Relevance gate: skip memory injection when user message has
+                # negligible keyword overlap with L3 content.
+                if self._is_memory_relevant(context.memory_context, context.user_message):
+                    blocks.append(PromptBlock("memory", context.memory_context))
+                _l3_content_cache[session_id] = mem_hash
+        # Volatile blocks 8-13: tools, skills, sources, extended_tools, notebooks, workspace
+        # Skipped in later rounds when prefixed content is already cached by the LLM.
+        if not include_volatile_blocks:
+            return blocks
         if include_tool_manifest:
             tools = tool_manifest or self._fallback_empty_tool_list()
             if kb_note:
@@ -87,10 +107,26 @@ class ChatPromptAssembler:
             blocks.append(PromptBlock("notebooks", notebook_manifest))
         if workspace_note:
             blocks.append(PromptBlock("workspace", workspace_note))
-        # Volatile content deliberately gets NO system block: the KB seed
-        # rides in the trailing user message, so the system prompt stays
-        # byte-stable for the whole turn (every loop round shares one prefix).
         return blocks
+
+    @staticmethod
+    def _is_memory_relevant(memory_content: str, user_message: str) -> bool:
+        """Return True if L3 memory has meaningful keyword overlap with the user message.
+
+        Simple token-set intersection: only skip memory when there is virtually
+        no shared vocabulary between the user query and the accumulated memory.
+        This is intentionally lenient — it only gates truly orthogonal pairings
+        (e.g. "solve 2x=4" vs memory full of biology notes).
+        """
+        if not user_message.strip():
+            return True
+        mem_tokens = set(memory_content.lower().split())
+        msg_tokens = set(user_message.lower().split())
+        if not msg_tokens:
+            return True
+        overlap = mem_tokens & msg_tokens
+        ratio = len(overlap) / len(msg_tokens)
+        return ratio >= 0.05
 
     def _general_block(self, context: UnifiedContext) -> str:
         """Product identity, or the partner identity when one is present.

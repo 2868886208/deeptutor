@@ -267,7 +267,7 @@ class OpenAICompatProvider(LLMProvider):
         spec = self._spec
 
         if spec and spec.supports_prompt_caching:
-            if any(model_name.lower().startswith(k) for k in ("anthropic/", "claude")):
+            if any(model_name.lower().startswith(k) for k in ("anthropic/", "claude", "deepseek")):
                 messages, tools = self._apply_cache_control(messages, tools)
 
         if spec and spec.strip_model_prefix:
