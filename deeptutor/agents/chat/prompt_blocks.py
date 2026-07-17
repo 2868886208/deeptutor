@@ -120,10 +120,12 @@ class ChatPromptAssembler:
         """
         if not user_message.strip():
             return True
-        mem_tokens = set(memory_content.lower().split())
         msg_tokens = set(user_message.lower().split())
-        if not msg_tokens:
+        # Short / generic queries: keyword overlap is unreliable, always
+        # include memory to preserve multi-turn context.
+        if len(msg_tokens) <= 4:
             return True
+        mem_tokens = set(memory_content.lower().split())
         overlap = mem_tokens & msg_tokens
         ratio = len(overlap) / len(msg_tokens)
         return ratio >= 0.05
